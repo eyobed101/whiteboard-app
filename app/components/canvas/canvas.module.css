@@ -1,0 +1,227 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f5f5f7;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.toolGroup {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.toolSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toolSectionTitle {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.toolButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.toolButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #555;
+}
+
+.toolButton:hover {
+  background-color: #f0f0f0;
+}
+
+.toolButton.activeTool {
+  background-color: #4a6bff;
+  color: white;
+}
+
+.colorControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.colorPicker {
+  width: 30px;
+  height: 30px;
+  border: none;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.colorPicker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorPicker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+.colorPreview {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sizeControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sizeButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sizeButton:hover {
+  background-color: #e0e0e0;
+}
+
+.sizeButton svg {
+  fill: #555;
+}
+
+.sizeIndicator {
+  width: 40px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sizeIndicatorDot {
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: none;
+  background-color: #f0f0f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #e0e0e0;
+}
+
+.actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionButton svg {
+  fill: #555;
+}
+
+.canvas {
+  flex: 1;
+  width: 100%;
+  background-color: white;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.connectionStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.statusIndicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.statusIndicator.connected {
+  background-color: #4caf50;
+}
+
+.statusIndicator.disconnected {
+  background-color: #f44336;
+}
+
+.tooltip {
+  position: absolute;
+  background-color: #333;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  z-index: 100;
+  transform: translateY(-100%);
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .toolbar {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .toolGroup {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
