@@ -1,31 +1,55 @@
 'use client'
-
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import PaintingBoard from './components/paintingBoard/paintingBoard';
 import { FiCopy, FiShare2, FiUsers, FiSettings, FiHelpCircle } from 'react-icons/fi';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { BsFillPaletteFill } from 'react-icons/bs';
-import styles from './components/paintingBoard/paintingBoard.module.css';
 import Canvas from './components/canvas/canvas';
-
+import styles from './home.module.css';
 
 const Home: React.FC = () => {
   const [currentColor, setCurrentColor] = useState('#4a6bff');
-  const [roomId, setRoomId] = useState('default-room');
+  const [roomId, setRoomId] = useState('');
   const [activeTab, setActiveTab] = useState('canvas');
   const [showRoomSettings, setShowRoomSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [participants, setParticipants] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showRoomInfo, setShowRoomInfo] = useState(false);
+  // In your Home component
 
-  // Generate a random room ID if empty
+  // Add this useEffect to handle participant updates
   useEffect(() => {
-    if (!roomId || roomId === 'default-room') {
-      const randomId = Math.random().toString(36).substring(2, 8);
-      setRoomId(`room-${randomId}`);
+    const handleParticipantsUpdate = (count: number) => {
+      setParticipants(count);
+    };
+
+    window.addEventListener('participants-update', ((e: CustomEvent<number>) => {
+      handleParticipantsUpdate(e.detail);
+    }) as EventListener);
+
+    return () => {
+      window.removeEventListener('participants-update', ((e: CustomEvent<number>) => {
+        handleParticipantsUpdate(e.detail);
+      }) as EventListener);
+    };
+  }, []);
+
+  // Initialize room ID from URL or generate a new one
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlRoomId = params.get('room');
+
+      if (urlRoomId) {
+        setRoomId(urlRoomId);
+      } else {
+        const randomId = Math.random().toString(36).substring(2, 8);
+        setRoomId(`room-${randomId}`);
+        // Update URL without page reload
+        window.history.pushState({}, '', `?room=room-${randomId}`);
+      }
     }
   }, []);
 
@@ -37,10 +61,29 @@ const Home: React.FC = () => {
     });
   };
 
+  const shareRoom = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+
+    try {
+      await navigator.share({
+        title: 'Join my collaborative canvas',
+        text: `Let's draw together! Join room ${roomId}`,
+        url: shareUrl,
+      });
+    } catch (err) {
+      // Fallback to copy if Web Share API not supported
+      navigator.clipboard.writeText(shareUrl);
+      toast.success('Room link copied to clipboard!', {
+        position: 'bottom-right',
+        autoClose: 2000,
+      });
+    }
+  };
+
   const toggleFullscreen = () => {
     if (!isFullscreen) {
-      const elem = document.querySelector(`.${styles.boardContainer}`);
-      if (elem?.requestFullscreen) {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
         elem.requestFullscreen();
       }
     } else {
@@ -51,16 +94,12 @@ const Home: React.FC = () => {
     setIsFullscreen(!isFullscreen);
   };
 
-  const shareRoom = async () => {
-    try {
-      await navigator.share({
-        title: 'Join my painting room',
-        text: `Let's draw together! Join room ${roomId}`,
-        url: window.location.href,
-      });
-    } catch (err) {
-      copyRoomId();
-    }
+  const regenerateRoomId = () => {
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const newRoomId = `room-${randomId}`;
+    setRoomId(newRoomId);
+    window.history.pushState({}, '', `?room=${newRoomId}`);
+    toast.success('New room created! Share the new link with collaborators.');
   };
 
   return (
@@ -91,9 +130,9 @@ const Home: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setShowRoomSettings(true)}
-            className={`p-2 rounded-lg transition-all ${showRoomSettings ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
-            aria-label="Room Settings"
+            onClick={() => setShowRoomInfo(true)}
+            className={`p-2 rounded-lg transition-all ${showRoomInfo ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
+            aria-label="Room Info"
           >
             <FiUsers className="w-5 h-5" />
           </button>
@@ -106,17 +145,19 @@ const Home: React.FC = () => {
             <FiHelpCircle className="w-5 h-5" />
           </button>
           <button
-            className={styles.fullscreenButton}
             onClick={toggleFullscreen}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-all"
             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
           >
-            <svg viewBox="0 0 24 24" width="20" height="20">
-              {isFullscreen ? (
+            {isFullscreen ? (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-              ) : (
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                 <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
-              )}
-            </svg>
+              </svg>
+            )}
           </button>
         </nav>
       </div>
@@ -176,24 +217,25 @@ const Home: React.FC = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 container mx-auto px-6 py-6 h-full">
-          {activeTab === 'canvas' && (
-              <Canvas
-                roomId={roomId}
-           
-                className="h-full"
+          {activeTab === 'canvas' && roomId && (
+            <Canvas
+              roomId={roomId}
+              onColorChange={setCurrentColor}
+              onParticipantsChange={setParticipants} // Add this
 
-              />
+              className="h-full"
+            />
           )}
         </main>
 
-        {/* Room Settings Panel */}
-        {showRoomSettings && (
+        {/* Room Info Panel */}
+        {showRoomInfo && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Room Settings</h2>
+                <h2 className="text-xl font-bold text-gray-800">Room Information</h2>
                 <button
-                  onClick={() => setShowRoomSettings(false)}
+                  onClick={() => setShowRoomInfo(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   &times;
@@ -203,16 +245,16 @@ const Home: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Room ID</label>
-                  <div className="flex">
+                  <div className="flex items-center space-x-2">
                     <input
                       type="text"
                       value={roomId}
-                      onChange={(e) => setRoomId(e.target.value)}
-                      className="flex-1 px-3 py-2 border rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
+                      readOnly
+                      className="flex-1 px-3 py-2 border rounded-md bg-gray-50"
                     />
                     <button
                       onClick={copyRoomId}
-                      className="px-3 py-2 bg-indigo-600 text-white rounded-r-md hover:bg-indigo-700 transition-colors"
+                      className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
                     >
                       <FiCopy className="w-5 h-5" />
                     </button>
@@ -221,27 +263,25 @@ const Home: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Participants: {participants}
+                    Share this room
                   </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="10"
-                    value={participants}
-                    onChange={(e) => setParticipants(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                  />
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={shareRoom}
+                      className="flex-1 flex items-center justify-center space-x-2 py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                    >
+                      <FiShare2 className="w-5 h-5" />
+                      <span>Share Link</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
                   <button
-                    onClick={() => {
-                      setShowRoomSettings(false);
-                      toast.success('Settings saved');
-                    }}
-                    className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                    onClick={regenerateRoomId}
+                    className="w-full py-2 px-4 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                   >
-                    Save Settings
+                    Create New Room
                   </button>
                 </div>
               </div>
@@ -270,7 +310,7 @@ const Home: React.FC = () => {
                       1
                     </div>
                   </div>
-                  <p>Share the Room ID with collaborators to draw together in real-time</p>
+                  <p>Share the room link with collaborators to draw together in real-time</p>
                 </div>
 
                 <div className="flex items-start space-x-3">

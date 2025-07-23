@@ -1,12 +1,22 @@
+// lib/socket.ts
 import { io, Socket } from 'socket.io-client';
 
 let socket: Socket;
 
-export const connectSocket = (roomId: string = 'default-room') => {
+export const connectSocket = (roomId: string) => {
   if (!socket) {
-    socket = io({
+    const socketUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:3000' 
+      : window.location.origin;
+    
+    socket = io(socketUrl, {
       path: '/api/socket',
-      transports: ['websocket'],
+      transports: ['websocket'], // Force WebSocket only
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      query: { roomId },
+      withCredentials: true
     });
 
     socket.on('connect', () => {
@@ -14,14 +24,12 @@ export const connectSocket = (roomId: string = 'default-room') => {
       socket.emit('join', roomId);
     });
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from Socket.IO server');
+    socket.on('connect_error', (err) => {
+      console.error('Connection error:', err);
     });
   }
   return socket;
 };
-
-export const getSocket = () => socket;
 
 export const disconnectSocket = () => {
   if (socket) {

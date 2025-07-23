@@ -20,19 +20,22 @@ interface SocketData {
   image?: string;
   drawing?: DrawingData;
   clear?: boolean;
+  participants?: number;
 }
 
 interface CanvasProps {
-  roomId?: string;
+  roomId: string;
   onColorChange?: (color: string) => void;
-  onClear?: () => void;
+  onParticipantsChange?: (count: number) => void; 
+
   className?: string;
 }
 
 const Canvas: React.FC<CanvasProps> = ({ 
-  roomId = 'default-room',
+  roomId,
   onColorChange,
-  onClear,
+  onParticipantsChange, 
+
   className = ''
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -41,6 +44,7 @@ const Canvas: React.FC<CanvasProps> = ({
   const [activeTool, setActiveTool] = useState<'pen' | 'eraser' | 'highlighter'>('pen');
   const [isConnected, setIsConnected] = useState(false);
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
+  const [participants, setParticipants] = useState(1);
   const socketRef = useRef<Socket | null>(null);
   const isDrawingRef = useRef(false);
   const prevPointRef = useRef<Point>({ x: 0, y: 0 });
@@ -48,86 +52,131 @@ const Canvas: React.FC<CanvasProps> = ({
   const redoStackRef = useRef<ImageData[]>([]);
   
   // Initialize socket connection
-  useEffect(() => {
-    const socketUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3000/api/socket' 
-      : '/api/socket';
-    
-    socketRef.current = io(socketUrl, {
-      path: '/api/socket',
-      transports: ['websocket'],
+useEffect(() => {
+  if (!roomId) return;
+
+  // Initialize socket connection
+  const socket = io(
+    process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
+    {
+      path: "/api/socket",
+      transports: ["websocket"],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-    });
+      query: { roomId }
+    }
+  );
+
+  socketRef.current = socket;
+
+  // Connection handlers
+  socket.on("connect", () => {
+    console.log("Connected to socket server");
+    setIsConnected(true);
+  });
+
+  socket.on("disconnect", () => {
+    setIsConnected(false);
+  });
+
+  socket.on("connect_error", (err) => {
+    console.error("Connection error:", err);
+  });
+
+  // Participant count updates
+  socket.on("participants-update", (count: number) => {
+    console.log("Participants count updated:", count);
+    setParticipants(count);
+    if (onParticipantsChange) {
+      onParticipantsChange(count);
+    }
+  });
+
+  // Initial canvas state when joining
+  socket.on("canvas-state", (state: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     
-    socketRef.current.on('connect', () => {
-      console.log('Connected to socket server');
-      setIsConnected(true);
-      socketRef.current?.emit('join', roomId);
-    });
-    
-    socketRef.current.on('disconnect', () => {
-      setIsConnected(false);
-    });
-    
-    socketRef.current.on('data', (data: SocketData) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      
-      if (data.image) {
-        const img = new Image();
-        img.onload = () => {
-          saveCanvasState();
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = data.image;
-      } 
-      else if (data.drawing) {
-        const { prev, curr, color, lineWidth, tool } = data.drawing;
-        
-        if (tool === 'eraser') {
-          ctx.globalCompositeOperation = 'destination-out';
-        } else if (tool === 'highlighter') {
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.globalAlpha = 0.5;
-        } else {
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.globalAlpha = 1;
-        }
-        
-        ctx.beginPath();
-        ctx.moveTo(prev.x, prev.y);
-        ctx.lineTo(curr.x, curr.y);
-        ctx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
-        ctx.closePath();
-        
-        // Reset to default
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.globalAlpha = 1;
-      }
-      else if (data.clear) {
-        saveCanvasState();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (onClear) {
-          onClear();
-        }
-      }
-    });
-    
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !state) return;
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
     };
-  }, [roomId, onClear]);
+    img.src = state;
+  });
+
+  // Real-time drawing updates
+  socket.on("drawing-data", (data) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    drawOnCanvas(ctx, data);
+  });
+
+  // Clear canvas event
+  socket.on("clear-canvas", () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  });
+
+  return () => {
+    socket.disconnect();
+  };
+}, [roomId, onParticipantsChange]);
+
+// Helper function to draw on canvas
+const drawOnCanvas = (ctx: CanvasRenderingContext2D, data: any) => {
+  const { prev, curr, color, lineWidth, tool } = data;
+  
+  if (tool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+  } else if (tool === 'highlighter') {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.5;
+  } else {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+  }
+  
+  ctx.beginPath();
+  ctx.moveTo(prev.x, prev.y);
+  ctx.lineTo(curr.x, curr.y);
+  ctx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color;
+  ctx.lineWidth = lineWidth;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+  ctx.closePath();
+  
+  // Reset to default
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+};
+
+// When your local canvas changes, emit to others
+const handleCanvasUpdate = (imageData: string) => {
+  if (socketRef.current?.connected) {
+    socketRef.current.emit("canvas-state", imageData);
+  }
+};
+
+// When drawing locally, emit to others
+const handleDrawing = (drawingData: any) => {
+  if (socketRef.current?.connected) {
+    socketRef.current.emit("drawing-data", drawingData);
+  }
+};
   
   // Setup canvas
   useEffect(() => {
@@ -236,56 +285,53 @@ const Canvas: React.FC<CanvasProps> = ({
   };
   
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawingRef.current) return;
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const point = getCoordinates(e);
-    if (!point) return;
-    
-    // Set drawing style based on tool
-    if (activeTool === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-    } else if (activeTool === 'highlighter') {
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.globalAlpha = 0.5;
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1;
-    }
-    
-    // Draw locally
-    ctx.beginPath();
-    ctx.moveTo(prevPointRef.current.x, prevPointRef.current.y);
-    ctx.lineTo(point.x, point.y);
-    ctx.strokeStyle = activeTool === 'eraser' ? 'rgba(0,0,0,1)' : color;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-    ctx.closePath();
-    
-    // Send drawing data to server
-    if (socketRef.current) {
-      const drawingData: DrawingData = {
-        prev: prevPointRef.current,
-        curr: point,
-        color,
-        lineWidth,
-        tool: activeTool
-      };
-      
-      socketRef.current.emit('data', { drawing: drawingData });
-    }
-    
-    prevPointRef.current = point;
-    
-    // Reset to default
+  if (!isDrawingRef.current) return;
+  
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  
+  const point = getCoordinates(e);
+  if (!point) return;
+  
+  // Set drawing style based on tool
+  if (activeTool === 'eraser') {
+    ctx.globalCompositeOperation = 'destination-out';
+  } else if (activeTool === 'highlighter') {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.5;
+  } else {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
+  }
+  
+  // Draw locally
+  ctx.beginPath();
+  ctx.moveTo(prevPointRef.current.x, prevPointRef.current.y);
+  ctx.lineTo(point.x, point.y);
+  ctx.strokeStyle = activeTool === 'eraser' ? 'rgba(0,0,0,1)' : color;
+  ctx.lineWidth = lineWidth;
+  ctx.stroke();
+  ctx.closePath();
+  
+  // Use handleDrawing instead of direct emit
+  const drawingData: DrawingData = {
+    prev: prevPointRef.current,
+    curr: point,
+    color,
+    lineWidth,
+    tool: activeTool
   };
+  handleDrawing(drawingData);
+  
+  prevPointRef.current = point;
+  
+  // Reset to default
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+};
   
   const endDrawing = () => {
     isDrawingRef.current = false;
