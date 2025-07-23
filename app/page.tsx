@@ -7,6 +7,9 @@ import { FiCopy, FiShare2, FiUsers, FiSettings, FiHelpCircle } from 'react-icons
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { BsFillPaletteFill } from 'react-icons/bs';
+import styles from './components/paintingBoard/paintingBoard.module.css';
+import Canvas from './components/canvas/canvas';
+
 
 const Home: React.FC = () => {
   const [currentColor, setCurrentColor] = useState('#4a6bff');
@@ -15,6 +18,8 @@ const Home: React.FC = () => {
   const [showRoomSettings, setShowRoomSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [participants, setParticipants] = useState(1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showRoomInfo, setShowRoomInfo] = useState(false);
 
   // Generate a random room ID if empty
   useEffect(() => {
@@ -30,6 +35,20 @@ const Home: React.FC = () => {
       position: 'bottom-right',
       autoClose: 2000,
     });
+  };
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      const elem = document.querySelector(`.${styles.boardContainer}`);
+      if (elem?.requestFullscreen) {
+        elem.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+    setIsFullscreen(!isFullscreen);
   };
 
   const shareRoom = async () => {
@@ -61,30 +80,43 @@ const Home: React.FC = () => {
             AS
           </div>
         </div>
-        
+
         <nav className="flex-1 flex flex-col items-center space-y-6">
-          <button 
+          <button
             onClick={() => setActiveTab('canvas')}
             className={`p-2 rounded-lg transition-all ${activeTab === 'canvas' ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
             aria-label="Canvas"
           >
             <BsFillPaletteFill className="w-5 h-5" />
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setShowRoomSettings(true)}
             className={`p-2 rounded-lg transition-all ${showRoomSettings ? 'bg-indigo-100 text-indigo-600' : 'text-gray-600 hover:bg-gray-100'}`}
             aria-label="Room Settings"
           >
             <FiUsers className="w-5 h-5" />
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setShowTutorial(true)}
             className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-all"
             aria-label="Help"
           >
             <FiHelpCircle className="w-5 h-5" />
+          </button>
+          <button
+            className={styles.fullscreenButton}
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              {isFullscreen ? (
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+              ) : (
+                <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+              )}
+            </svg>
           </button>
         </nav>
       </div>
@@ -100,19 +132,19 @@ const Home: React.FC = () => {
               </h1>
               <p className="text-sm text-gray-500">Real-time collaborative drawing</p>
             </div>
-            
+
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 bg-gray-100 rounded-full px-4 py-2">
                 <span className="text-sm text-gray-600">Room:</span>
                 <span className="font-medium text-gray-800">{roomId}</span>
-                <button 
+                <button
                   onClick={copyRoomId}
                   className="text-gray-500 hover:text-indigo-600 transition-colors"
                   aria-label="Copy room ID"
                 >
                   <FiCopy className="w-4 h-4" />
                 </button>
-                <button 
+                <button
                   onClick={shareRoom}
                   className="text-gray-500 hover:text-indigo-600 transition-colors"
                   aria-label="Share room"
@@ -120,10 +152,10 @@ const Home: React.FC = () => {
                   <FiShare2 className="w-4 h-4" />
                 </button>
               </div>
-              
+
               <div className="flex items-center space-x-2 bg-gray-100 rounded-full px-4 py-2">
                 <span className="text-sm text-gray-600">Color:</span>
-                <div 
+                <div
                   className="w-5 h-5 rounded-full border border-gray-300 shadow-sm"
                   style={{ backgroundColor: currentColor }}
                 />
@@ -131,7 +163,7 @@ const Home: React.FC = () => {
                   {currentColor.toUpperCase()}
                 </span>
               </div>
-              
+
               <div className="flex items-center space-x-2 bg-gray-100 rounded-full px-4 py-2">
                 <FiUsers className="w-4 h-4 text-gray-600" />
                 <span className="text-sm font-medium text-gray-800">
@@ -143,14 +175,14 @@ const Home: React.FC = () => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 container mx-auto px-6 py-6">
+        <main className="flex-1 container mx-auto px-6 py-6 h-full">
           {activeTab === 'canvas' && (
-            <PaintingBoard 
-              roomId={roomId}
-              onColorChange={setCurrentColor}
-              onClear={() => toast.info('Canvas cleared', { position: 'bottom-right' })}
-              className="h-full"
-            />
+              <Canvas
+                roomId={roomId}
+           
+                className="h-full"
+
+              />
           )}
         </main>
 
@@ -160,14 +192,14 @@ const Home: React.FC = () => {
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800">Room Settings</h2>
-                <button 
+                <button
                   onClick={() => setShowRoomSettings(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   &times;
                 </button>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Room ID</label>
@@ -186,7 +218,7 @@ const Home: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Participants: {participants}
@@ -200,7 +232,7 @@ const Home: React.FC = () => {
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
-                
+
                 <div className="pt-4 border-t border-gray-200">
                   <button
                     onClick={() => {
@@ -223,14 +255,14 @@ const Home: React.FC = () => {
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800">How to Use</h2>
-                <button 
+                <button
                   onClick={() => setShowTutorial(false)}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   &times;
                 </button>
               </div>
-              
+
               <div className="space-y-3 text-gray-700">
                 <div className="flex items-start space-x-3">
                   <div className="mt-1 flex-shrink-0">
@@ -240,7 +272,7 @@ const Home: React.FC = () => {
                   </div>
                   <p>Share the Room ID with collaborators to draw together in real-time</p>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="mt-1 flex-shrink-0">
                     <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -249,7 +281,7 @@ const Home: React.FC = () => {
                   </div>
                   <p>Use the toolbar to select colors, brush sizes, and tools</p>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="mt-1 flex-shrink-0">
                     <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -259,7 +291,7 @@ const Home: React.FC = () => {
                   <p>Save your artwork or clear the canvas when needed</p>
                 </div>
               </div>
-              
+
               <div className="mt-6 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setShowTutorial(false)}

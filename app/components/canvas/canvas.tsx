@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react';
-import io, { Socket } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import styles from './canvas.module.css';
 
 interface Point {
@@ -47,20 +47,15 @@ const Canvas: React.FC<CanvasProps> = ({
   const undoStackRef = useRef<ImageData[]>([]);
   const redoStackRef = useRef<ImageData[]>([]);
   
-  // Handle color changes
-  useEffect(() => {
-    if (onColorChange) {
-      onColorChange(color);
-    }
-  }, [color, onColorChange]);
-
   // Initialize socket connection
   useEffect(() => {
     const socketUrl = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:5000' 
-      : '/';
+      ? 'http://localhost:3000/api/socket' 
+      : '/api/socket';
     
     socketRef.current = io(socketUrl, {
+      path: '/api/socket',
+      transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
     });
@@ -68,9 +63,7 @@ const Canvas: React.FC<CanvasProps> = ({
     socketRef.current.on('connect', () => {
       console.log('Connected to socket server');
       setIsConnected(true);
-      if (roomId) {
-        socketRef.current?.emit('join', roomId);
-      }
+      socketRef.current?.emit('join', roomId);
     });
     
     socketRef.current.on('disconnect', () => {
@@ -149,7 +142,6 @@ const Canvas: React.FC<CanvasProps> = ({
       if (container) {
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
-        // Redraw any existing content if needed
       }
     };
     
@@ -165,7 +157,7 @@ const Canvas: React.FC<CanvasProps> = ({
       window.removeEventListener('resize', resizeCanvas);
     };
   }, [color, lineWidth]);
-  
+
   const saveCanvasState = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -175,23 +167,33 @@ const Canvas: React.FC<CanvasProps> = ({
     
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     undoStackRef.current.push(imageData);
-    redoStackRef.current = []; // Clear redo stack when new action is performed
+    // Limit undo stack to prevent memory issues
+    if (undoStackRef.current.length > 20) {
+      undoStackRef.current.shift();
+    }
+    redoStackRef.current = [];
   };
   
   const undo = () => {
+    if (undoStackRef.current.length === 0) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    if (!ctx || undoStackRef.current.length === 0) return;
+    if (!ctx) return;
     
-    saveCanvasState(); // Current state becomes redo
+    // Save current state to redo stack
+    const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    redoStackRef.current.push(currentState);
+    
+    // Restore previous state
     const lastState = undoStackRef.current.pop();
     if (!lastState) return;
     
-    redoStackRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     ctx.putImageData(lastState, 0, 0);
     
+    // Broadcast to other users
     if (socketRef.current) {
       const dataUrl = canvas.toDataURL('image/png');
       socketRef.current.emit('data', { image: dataUrl });
@@ -199,26 +201,31 @@ const Canvas: React.FC<CanvasProps> = ({
   };
   
   const redo = () => {
+    if (redoStackRef.current.length === 0) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    if (!ctx || redoStackRef.current.length === 0) return;
+    if (!ctx) return;
     
-    saveCanvasState(); // Current state becomes undo
+    // Save current state to undo stack
+    const currentState = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    undoStackRef.current.push(currentState);
+    
+    // Restore next state
     const nextState = redoStackRef.current.pop();
     if (!nextState) return;
     
-    undoStackRef.current.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
     ctx.putImageData(nextState, 0, 0);
     
+    // Broadcast to other users
     if (socketRef.current) {
       const dataUrl = canvas.toDataURL('image/png');
       socketRef.current.emit('data', { image: dataUrl });
     }
   };
   
-  // Drawing functions
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     const point = getCoordinates(e);
     if (!point) return;
@@ -385,7 +392,10 @@ const Canvas: React.FC<CanvasProps> = ({
               <input
                 type="color"
                 value={color}
-                onChange={(e) => setColor(e.target.value)}
+                onChange={(e) => {
+                  setColor(e.target.value);
+                  if (onColorChange) onColorChange(e.target.value);
+                }}
                 className={styles.colorPicker}
                 aria-label="Select drawing color"
               />
