@@ -22,9 +22,7 @@ export function initSocketServer() {
     }>();
 
     io.on("connection", (socket) => {
-      console.log("New connection:", socket.id);
       const roomId = socket.handshake.query.roomId as string;
-      console.log("New roomId:", roomId);
 
       if (!roomId) {
         socket.disconnect();
@@ -57,6 +55,12 @@ export function initSocketServer() {
         socket.to(roomId).emit("drawing-data", data);
       });
 
+      socket.on('request-canvas-state', () => {
+        if (room.canvasState) {
+          socket.emit('canvas-state', room.canvasState);
+        }
+      });
+
       socket.on("canvas-state", (state: string) => {
         room.canvasState = state;
         socket.to(roomId).emit("canvas-state", state);
@@ -72,7 +76,7 @@ export function initSocketServer() {
           const room = rooms.get(roomId)!;
           room.participants.delete(socket.id);
           io.to(roomId).emit("participants-update", room.participants.size);
-          
+
           if (room.participants.size === 0) {
             rooms.delete(roomId);
           }
