@@ -25,9 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 
-   if (process.env.NODE_ENV === "development") {
-    initSocketServer();
-  }
+  initSocketServer();
+
   return (
     <html lang="en">
       <body
