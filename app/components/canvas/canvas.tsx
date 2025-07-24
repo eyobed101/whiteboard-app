@@ -436,7 +436,7 @@ const Canvas: React.FC<CanvasProps> = ({
   };
 
   return (
-    <div className={`${styles.container} ${className}`}>
+    <div className={`${styles.container}`}>
       <div className={styles.toolbar}>
         <div className={styles.toolGroup}>
           <div className={styles.toolSection}>
