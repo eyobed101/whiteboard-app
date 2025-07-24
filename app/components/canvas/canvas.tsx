@@ -62,7 +62,7 @@ const Canvas: React.FC<CanvasProps> = ({
 
     // Initialize socket connection
     const socket = io(
-      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
+      process.env.NEXT_PUBLIC_SOCKET_URL || "localhost:3001",
       {
         path: "/api/socket",
         transports: ["websocket"],

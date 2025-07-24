@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { initSocketServer } from "@/lib/socket-server";
+// import { initSocketServer } from "@/lib/socket-server";
 
 
 const geistSans = Geist({
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 
-  initSocketServer();
+  // initSocketServer();
 
   return (
     <html lang="en">
