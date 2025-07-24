@@ -84,12 +84,11 @@ export function initSocketServer() {
       });
     });
 
-    if (process.env.NODE_ENV === "development") {
-      const PORT = 3001;
-      httpServer.listen(PORT, () => {
-        console.log(`Socket.IO server running on port ${PORT}`);
-      });
-    }
+    const PORT = 3001;
+    httpServer.listen(PORT, () => {
+      console.log(`Socket.IO server running on port ${PORT}`);
+    });
+
   }
 
   return io;
